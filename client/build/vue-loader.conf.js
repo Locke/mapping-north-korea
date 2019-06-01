@@ -18,5 +18,6 @@ module.exports = {
     source: 'src',
     img: 'src',
     image: 'xlink:href'
-  }
+  },
+  i18n: '@kazupon/vue-i18n-loader'
 }

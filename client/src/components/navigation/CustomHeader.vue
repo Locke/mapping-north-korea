@@ -6,6 +6,9 @@
             <v-icon>help_outline</v-icon>
         </v-btn>
         <v-spacer></v-spacer>
+        <v-btn @click.stop="toggleLanguage()">
+            {{ $t('language_option') }}
+        </v-btn>
         <v-btn icon @click.stop="toggleDarkTheme()">
             <v-icon>invert_colors</v-icon>
         </v-btn>
@@ -45,6 +48,17 @@
     </v-toolbar>
 </template>
 
+<i18n>
+{
+  "en": {
+    "language_option": "한국어"
+  },
+  "ko": {
+    "language_option": "English"
+  }
+}
+</i18n>
+
 <script>
 import EventBus from '@/services/EventBus';
 
@@ -52,6 +66,7 @@ export default {
     name: 'CustomHeader',
     data () {
         return {
+            locale: 'en',
             processesWorking: [],
             displayRightIcon: this.$router.currentRoute.name === 'MapPage',
             infoDialog: false
@@ -70,6 +85,9 @@ export default {
         },
         toggleDarkTheme: function () {
             EventBus.$emit('mnk:toggle-dark-theme', localStorage.darkTheme !== 'true');
+        },
+        toggleLanguage: function () {
+            console.log('toggle!');
         },
         addLoading: function (id) {
             this.processesWorking.push(id);
