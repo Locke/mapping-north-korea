@@ -10,6 +10,14 @@ const defaultStyle = {
     weight: 1,
     opacity: 0.6
 };
+const hexToRgba = function (hex, opacity) {
+    hex = hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i, (m, r, g, b) => '#' + r + r + g + g + b + b)
+        .substring(1).match(/.{2}/g)
+        .map(x => parseInt(x, 16));
+    
+    return `rgba(${hex[0]}, ${hex[1]}, ${hex[2]}, ${opacity})`;
+};
+
 
 export default {
     name: 'CustomMap',
@@ -71,29 +79,60 @@ export default {
     },
     methods: {
         initMap: function () {
-            // eslint-disable-next-line
-            this.map = L.map('map').on('click', this.clickMapEvent).setView([ 39.686, 127.500 ], 7);
+            this.map = new Map({
+                layers: [
+                    new TileLayer({
+                        source: new OSM()
+                    })
+                ],
+                target: 'map',
+                view: new View({
+                    center: [ 39.686, 127.500 ],
+                    zoom: 7
+                })
+            });
+
+            this.map.on('click', this.clickMapEvent);
 
             // eslint-disable-next-line
-            this.lightTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            });
-            // eslint-disable-next-line
-            this.darkTileLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            });
+            // this.lightTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            //     maxZoom: 19,
+            //     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            // });
+            // // eslint-disable-next-line
+            // this.darkTileLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+            //     maxZoom: 19,
+            //     attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            // });
 
-            if (localStorage.darkTheme && localStorage.darkTheme === 'true') {
-                this.darkTileLayer.addTo(this.map);
-            } else {
-                this.lightTileLayer.addTo(this.map);
-            }
+            // if (localStorage.darkTheme && localStorage.darkTheme === 'true') {
+            //     this.darkTileLayer.addTo(this.map);
+            // } else {
+            //     this.lightTileLayer.addTo(this.map);
+            // }
 
             EventBus.$emit('mnk:start-loading', 'loadingsectors');
             MapApiService.getAllSectors().then((res) => {
                 this.sectors = this.sectorsToGeoJson(res.data);
+
+                var sectorsLayer = new VectorLayer({
+                    source: new VectorSource({
+                        features: (new GeoJSON()).readFeatures(this.sectors)
+                    }),
+                    style: function (feature) {
+                        return new Style({
+                            fill: new Fill({
+                                color: hexToRgba(feature.properties.state.color, defaultStyle.opacity)
+                            }),
+                            stroke: new Stroke({
+                                color: hexToRgba(feature.properties.state.color, defaultStyle.opacity),
+                                width: defaultStyle.weight
+                            })
+                        });
+                    }
+                });
+
+                this.map.addLayer(sectorsLayer);
 
                 // eslint-disable-next-line
                 this.geoJsonLayer = L.geoJSON(this.sectors, {
