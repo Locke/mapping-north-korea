@@ -4,13 +4,12 @@ log.inf("Loading middleware...");
 const express = require("express");
 const session = require("express-session"); 
 const bodyParser = require("body-parser");
-const uuid = require("uuid/v4");
 const MongoStore = require("connect-mongo")(session);
 const mongoose = require("mongoose");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
 const fs = require("fs");
-const exec = require("child_process");
+const exec = require("child_process").exec;
 
 if (!fs.existsSync(".env")) {
     log.err("Error loading configuration: .env file not found. Please use the following markup:",
@@ -74,10 +73,12 @@ db.once("open", function() {
     }
 });
 app.use(function(req, res, next) {
-    var allowedOrigins = ['https://mappingnorthkorea.com', 'https://www.openstreetmap.org'];
+    var allowedOrigins = ['https://mappingnorthkorea.com', 'https://www.openstreetmap.org', 'https://www.mapwith.ai'];
     if (global.devMode) {
         allowedOrigins.push('http://127.0.0.1:8080');
         allowedOrigins.push('http://localhost:8080');
+        allowedOrigins.push('http://127.0.0.1:8081');
+        allowedOrigins.push('http://localhost:8081');
     }
     var origin = req.headers.origin;
     if(allowedOrigins.indexOf(origin) > -1){
@@ -95,19 +96,27 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 app.use(session({
-    genid: (req) => {
-        return uuid();
-    },
     store: new MongoStore({
         mongooseConnection: mongoose.connection,
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    }
 }));
 app.use(express.static(__dirname + "/dist"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+app.use((req, res, next) => {
+    if (!req.originalUrl.includes('/api/', 0)) {
+        res.sendFile(`${__dirname}/dist/index.html`);
+    } else {
+        next();
+    }
+});
 
 log.inf("Setting up routing...");
 //app.get("/api/main/getlocation", routeMain.getLocation);
@@ -129,7 +138,7 @@ app.get('/api/sector/completed/count/:id', routeSector.getCompletedSectorCountBy
 app.get('/api/sector/split/:id', routeSector.splitSectorBySectorId);
 app.delete('/api/sector/:id', routeSector.delete);
 
-app.post('/webhook', (req, res) => {
+app.post('/api/webhook', (req, res) => {
     log.alt("WEBHOOK INITIATED");
 
     exec("git pull", (err, stdout, stderr) => {

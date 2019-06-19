@@ -74,7 +74,7 @@
                                 outline
                                 v-on="on"
                                 class="no-margin-button"
-                                :disabled="!userLoggedIn"
+                                :disabled="!$root.loggedInUser"
                                 >{{ selectedSector.properties.state.title }}</v-btn>
                         </template>
                         <v-list>
@@ -96,7 +96,7 @@
                     text-xs-center
                     grid-list-xs
                     style="padding: 0 16px;"
-                    v-if="!userLoggedIn">
+                    v-if="!$root.loggedInUser">
                     <v-layout>
                         <v-flex>
                             <span class="orange--text">Please log in to map or edit this sector.</span>
@@ -107,7 +107,7 @@
                     text-xs-center
                     grid-list-xs
                     style="padding: 0 16px;"
-                    v-if="selectedSector.properties.state.title === 'Open' && userLoggedIn">
+                    v-if="selectedSector.properties.state.title === 'Open' && $root.loggedInUser">
                     <v-layout>
                         <v-flex>
                             <span class="orange--text">Please change the state to "Being edited" to map this sector.</span>
@@ -118,7 +118,7 @@
                     text-xs-center
                     grid-list-xs
                     style="padding: 0 16px;"
-                    v-if="selectedSector.properties.state.title === 'Review needed' && userLoggedIn">
+                    v-if="selectedSector.properties.state.title === 'Review needed' && $root.loggedInUser">
                     <v-layout>
                         <v-flex>
                             <span class="orange--text">Please change the state to "Being reviewed" to review or back to "Being edited" to edit this sector.</span>
@@ -129,7 +129,7 @@
                     text-xs-center
                     grid-list-xs
                     style="padding: 0 16px;"
-                    v-if="selectedSector.properties.state.title === 'Completed' && userLoggedIn">
+                    v-if="selectedSector.properties.state.title === 'Completed' && $root.loggedInUser">
                     <v-layout>
                         <v-flex>
                             <span class="orange--text">Please change the state back to "Being edited" or "Being reviewed" to edit or review this sector.</span>
@@ -146,12 +146,15 @@
                                     color="success"
                                     v-on="on"
                                     class="no-margin-button"
-                                    :disabled="!userLoggedIn || selectedSector.properties.state.title === 'Open' || selectedSector.properties.state.title === 'Review needed' || selectedSector.properties.state.title === 'Completed'"
+                                    :disabled="!$root.loggedInUser || selectedSector.properties.state.title === 'Open' || selectedSector.properties.state.title === 'Review needed' || selectedSector.properties.state.title === 'Completed'"
                                     >Map</v-btn>
                             </template>
                             <v-list>
                                 <v-list-tile :href="idUrl" target="_blank">
                                     <v-list-tile-title>iD</v-list-tile-title>
+                                </v-list-tile>
+                                <v-list-tile :href="rapidUrl" target="_blank">
+                                    <v-list-tile-title>RapiD</v-list-tile-title>
                                 </v-list-tile>
                                 <v-list-tile @click.stop="mapSectorInJOSM(); mappingMenuOpen = false;">
                                         <v-list-tile-title>JOSM</v-list-tile-title>
@@ -173,14 +176,14 @@
                             class="no-margin-button"
                             color="warning"
                             @click.stop="splitSector()"
-                            :disabled="!userLoggedIn"
+                            :disabled="!$root.loggedInUser"
                             >Split</v-btn>
                         <v-btn
                             v-if="adminLoggedIn"
                             class="no-margin-button"
                             color="error"
                             @click.stop="deleteSector()"
-                            :disabled="!userLoggedIn"
+                            :disabled="!$root.loggedInUser"
                             >Delete</v-btn>
                     </v-flex>
                 </v-layout>
@@ -190,7 +193,7 @@
                 text-xs-center
                 grid-list-xs
                 style="padding: 0 16px;"
-                v-if="userLoggedIn">
+                v-if="$root.loggedInUser">
                 <v-layout row wrap>
                     <v-flex xs12>
                         <v-textarea
@@ -235,12 +238,12 @@ export default {
             drawerRight: !this.$vuetify.breakpoint.xs,
             selectedSector: null,
             idUrl: '',
+            rapidUrl: '',
             valid: true,
             newComment: '',
             newState: null,
             states: null,
             events: [],
-            userLoggedIn: false,
             allEvents: [],
             mappingMenuOpen: false,
             stateEditOpen: false
@@ -251,9 +254,6 @@ export default {
             this.drawerRight = !this.drawerRight;
         });
         EventBus.$on('mnk:select-sector', this.selectSector);
-        EventBus.$on('mnk:oauth-user-details-received', () => {
-            this.userLoggedIn = true;
-        });
         EventBus.$on('mnk:deselect-sector', () => {
             this.selectedSector = null;
         });
@@ -261,11 +261,17 @@ export default {
         EventBus.$emit('mnk:start-loading', 'getAllStates');
         MapApiService.getAllStates().then((res) => {
             this.states = res.data;
+        }).catch(() => {
+            EventBus.$emit('mnk:message-error', 'Something went wrong while trying to get all possible sector states.');
+        }).finally(() => {
             EventBus.$emit('mnk:stop-loading', 'getAllStates');
         });
         EventBus.$emit('mnk:start-loading', 'getAllEvents');
         MapApiService.getAllEvents(25).then((res) => {
             this.allEvents = res.data;
+        }).catch(() => {
+            EventBus.$emit('mnk:message-error', 'Something went wrong while trying to get recent events.');
+        }).finally(() => {
             EventBus.$emit('mnk:stop-loading', 'getAllEvents');
         });
     },
@@ -282,12 +288,18 @@ export default {
                 '&#map=13/' + (coords[1][1] + coords[2][1]) / 2 + '/' + (coords[0][0] + coords[1][0]) / 2 +
                 '&comment=MappingNorthKorea.com%20sector%20' + this.selectedSector.properties._id +
                 '&gpx=https://mappingnorthkorea.com/api/sector/generate/' + this.selectedSector.properties._id + '.gpx';
+            this.rapidUrl = 'https://www.mapwith.ai/rapid?#' +
+                'gpx=https://mappingnorthkorea.com/api/sector/generate/' + this.selectedSector.properties._id + '.gpx' +
+                '&map=13/' + (coords[1][1] + coords[2][1]) / 2 + '/' + (coords[0][0] + coords[1][0]) / 2 +
+                '&comment=MappingNorthKorea.com%20sector%20' + this.selectedSector.properties._id;
 
             EventBus.$emit('mnk:start-loading', 'getEventsBySectorId');
             MapApiService.getEventsBySectorId(this.selectedSector.properties._id).then((res) => {
-                if (res.data.length > 0) {
-                    this.events = res.data.sort(function (a, b) { return new Date(b.time.date) - new Date(a.time.date); }).reverse();
-                }
+                if (!res.data.length) return;
+                this.events = res.data.sort(function (a, b) { return new Date(b.time.date) - new Date(a.time.date); }).reverse();
+            }).catch(() => {
+                EventBus.$emit('mnk:message-error', 'Something went wrong while trying to get the events of a sector.');
+            }).finally(() => {
                 EventBus.$emit('mnk:stop-loading', 'getEventsBySectorId');
             });
         },
@@ -319,9 +331,9 @@ export default {
 
                 EventBus.$emit('mnk:message-success', 'Sector updated');
                 EventBus.$emit('mnk:update-sector', this.selectedSector);
-                EventBus.$emit('mnk:stop-loading', 'updateSector');
             }).catch(() => {
-                EventBus.$emit('mnk:message-error', 'Something went wrong');
+                EventBus.$emit('mnk:message-error', 'Something went wrong while trying to update the sector.');
+            }).finally(() => {
                 EventBus.$emit('mnk:stop-loading', 'updateSector');
             });
         },
@@ -392,8 +404,11 @@ export default {
             if (confirm('Are you sure you want to delete this sector?')) {
                 EventBus.$emit('mnk:start-loading', 'deleteSectorById');
                 MapApiService.deleteSectorById(this.selectedSector.properties._id).then(function (res) {
-                    EventBus.$emit('mnk:stop-loading', 'deleteSectorById');
                     location.reload();
+                }).catch(() => {
+                    EventBus.$emit('mnk:message-error', 'Something went wrong while trying to delete the sector.');
+                }).finally(() => {
+                    EventBus.$emit('mnk:stop-loading', 'deleteSectorById');
                 });
             }
         },
@@ -401,16 +416,19 @@ export default {
             if (confirm('Are you sure you want to split this sector?')) {
                 EventBus.$emit('mnk:start-loading', 'splitSectorById');
                 MapApiService.splitSectorById(this.selectedSector.properties._id).then(function (res) {
-                    EventBus.$emit('mnk:stop-loading', 'splitSectorById');
                     location.reload();
+                }).catch(() => {
+                    EventBus.$emit('mnk:message-error', 'Something went wrong while trying to split the sector.');
+                }).finally(() => {
+                    EventBus.$emit('mnk:stop-loading', 'splitSectorById');
                 });
             }
         }
     },
     computed: {
         adminLoggedIn: function () {
-            if (this.userLoggedIn) {
-                return document.getElementById('logged-in-user-name').innerText === 'DevModeUser' || document.getElementById('logged-in-user-name').innerText === 'Artemis64';
+            if (this.$root.loggedInUser && document.getElementById('logged-in-user-name')) {
+                return document.getElementById('logged-in-user-name').innerText === 'Artemis64' || document.getElementById('logged-in-user-name').innerText === 'Artemis64dev';
             } else {
                 return false;
             }

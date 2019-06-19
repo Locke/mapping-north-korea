@@ -7,9 +7,14 @@ import AboutPage from '@/components/AboutPage/AboutPage';
 Vue.use(Router);
 
 export default new Router({
+    mode: 'history',
     routes: [
         {
             path: '/',
+            redirect: { name: 'MapPage' }
+        },
+        {
+            path: '/map/:sectorId?',
             name: 'MapPage',
             component: MapPage
         },
