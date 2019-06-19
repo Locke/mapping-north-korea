@@ -14,10 +14,9 @@ const hexToRgba = function (hex, opacity) {
     hex = hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i, (m, r, g, b) => '#' + r + r + g + g + b + b)
         .substring(1).match(/.{2}/g)
         .map(x => parseInt(x, 16));
-    
+
     return `rgba(${hex[0]}, ${hex[1]}, ${hex[2]}, ${opacity})`;
 };
-
 
 export default {
     name: 'CustomMap',
@@ -79,15 +78,19 @@ export default {
     },
     methods: {
         initMap: function () {
-            this.map = new Map({
+            // eslint-disable-next-line
+            this.map = new ol.Map({
                 layers: [
-                    new TileLayer({
-                        source: new OSM()
+                    // eslint-disable-next-line
+                    new ol.layer.Tile({
+                        // eslint-disable-next-line
+                        source: new ol.source.OSM()
                     })
                 ],
                 target: 'map',
-                view: new View({
-                    center: [ 39.686, 127.500 ],
+                // eslint-disable-next-line
+                view: new ol.View({
+                    center: [ 127.500, 39.686 ],
                     zoom: 7
                 })
             });
@@ -115,16 +118,22 @@ export default {
             MapApiService.getAllSectors().then((res) => {
                 this.sectors = this.sectorsToGeoJson(res.data);
 
-                var sectorsLayer = new VectorLayer({
-                    source: new VectorSource({
-                        features: (new GeoJSON()).readFeatures(this.sectors)
+                // eslint-disable-next-line
+                var sectorsLayer = new ol.layer.VectorLayer({
+                    // eslint-disable-next-line
+                    source: new ol.source.vector.VectorSource({
+                        // eslint-disable-next-line
+                        features: (new ol.format.GeoJSON()).readFeatures(this.sectors)
                     }),
                     style: function (feature) {
-                        return new Style({
-                            fill: new Fill({
+                        // eslint-disable-next-line
+                        return new ol.Style({
+                            // eslint-disable-next-line
+                            fill: new ol.style.Fill({
                                 color: hexToRgba(feature.properties.state.color, defaultStyle.opacity)
                             }),
-                            stroke: new Stroke({
+                            // eslint-disable-next-line
+                            stroke: new ol.style.Stroke({
                                 color: hexToRgba(feature.properties.state.color, defaultStyle.opacity),
                                 width: defaultStyle.weight
                             })
@@ -133,22 +142,6 @@ export default {
                 });
 
                 this.map.addLayer(sectorsLayer);
-
-                // eslint-disable-next-line
-                this.geoJsonLayer = L.geoJSON(this.sectors, {
-                    style: (feature) => {
-                        return {
-                            color: feature.properties.state.color,
-                            fillColor: feature.properties.state.color,
-                            weight: defaultStyle.weight,
-                            opacity: defaultStyle.opacity
-                        };
-                    }
-                }).on('click', this.clickSectorEvent).on('dblclick', function (event) {
-                    // eslint-disable-next-line
-                    L.DomEvent.stopPropagation(event);
-                    return false;
-                }).addTo(this.map);
 
                 if (this.$route.params.sectorId) {
                     this.setSectorSelected(this.getSectorLayerById(this.$route.params.sectorId), true);
