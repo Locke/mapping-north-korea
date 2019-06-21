@@ -7,7 +7,7 @@
         </v-btn>
         <v-spacer></v-spacer>
         <v-btn @click.stop="toggleLanguage()">
-            {{ $t('language_option') }}
+            {{ $t('message.language_option') }}
         </v-btn>
         <v-btn icon @click.stop="toggleDarkTheme()">
             <v-icon>invert_colors</v-icon>
@@ -69,6 +69,7 @@ import EventBus from '@/services/EventBus';
 export default {
     name: 'CustomHeader',
     data () {
+        this.$i18n.locale = 'en';
         return {
             locale: 'en',
             processesWorking: [],
